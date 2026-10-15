@@ -56,6 +56,17 @@ yarn-error.log
 # Bundle artifact
 *.jsbundle
 
+# Web build output (Vite)
+/web-dist
+
+# Local sighting data
+/sightings.json
+
+# Python virtualenv / caches
+/.venv
+__pycache__/
+*.pyc
+
 # Ruby / CocoaPods
 **/Pods/
 /vendor/bundle/
