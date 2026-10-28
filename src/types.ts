@@ -3,6 +3,12 @@ export type Prediction = {
   probability: number;
 };
 
+export type SpeciesInfo = {
+  summary: string;
+  fun_fact: string;
+  cached?: boolean;
+};
+
 export type HotspotLevel = 'high' | 'medium' | 'low';
 
 export type Sighting = {

@@ -10,11 +10,15 @@ os.environ.setdefault("KERAS_BACKEND", "torch")
 import numpy as np
 import keras
 from PIL import Image
-from fastapi import FastAPI, File, UploadFile
+from dotenv import load_dotenv
+
+import species_info
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(HERE, ".env"))
 MODEL_CANDIDATES = [
     os.path.join(HERE, "assets", "model.keras"),
     os.path.join(HERE, "..", "Image_classify_Birds_Model.keras"),
@@ -45,6 +49,7 @@ print("loading model...", flush=True)
 model = keras.models.load_model(find(MODEL_CANDIDATES))
 labels = load_labels(model.output_shape[-1])
 height, width = model.input_shape[1:3]
+LABEL_LOOKUP = {label.upper(): label for label in labels}
 print(f"ready: {len(labels)} classes, input {width}x{height}", flush=True)
 
 
@@ -124,6 +129,17 @@ async def predict(file: UploadFile = File(...), top_k: int = 5):
             {"label": labels[i], "probability": float(probs[i])} for i in order
         ]
     }
+
+
+@app.get("/species")
+def species(name: str):
+    canonical = LABEL_LOOKUP.get(name.strip().upper())
+    if canonical is None:
+        raise HTTPException(status_code=404, detail="Unknown species label")
+    try:
+        return species_info.get_species_info(canonical)
+    except species_info.SpeciesInfoError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/sightings")

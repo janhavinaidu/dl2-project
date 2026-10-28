@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import type { Hotspot, Sighting, SightingInput } from './types';
+import type { Hotspot, Sighting, SightingInput, SpeciesInfo } from './types';
 
 export const SERVER_URL =
   Platform.OS === 'android'
@@ -9,7 +9,12 @@ export const SERVER_URL =
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   if (!response.ok) {
-    throw new Error(`Server responded ${response.status}`);
+    let message = `Server responded ${response.status}`;
+    const body = await response.json().catch(() => null);
+    if (body && typeof body.detail === 'string') {
+      message = body.detail;
+    }
+    throw new Error(message);
   }
   return (await response.json()) as T;
 }
@@ -23,6 +28,10 @@ function query(params: Record<string, string | undefined>): string {
   }
   const search = new URLSearchParams(entries).toString();
   return `?${search}`;
+}
+
+export function getSpeciesInfo(name: string): Promise<SpeciesInfo> {
+  return json<SpeciesInfo>(`${SERVER_URL}/species${query({ name })}`);
 }
 
 export async function getSightings(label?: string): Promise<Sighting[]> {

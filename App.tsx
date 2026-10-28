@@ -22,11 +22,17 @@ import {
   launchCamera,
   launchImageLibrary,
 } from 'react-native-image-picker';
-import { SERVER_URL, addSighting } from './src/api';
+import { SERVER_URL, addSighting, getSpeciesInfo } from './src/api';
 import { getCurrentCoordinates } from './src/geolocation';
 import MapView from './src/MapView';
 import MapScreen from './src/MapScreen';
-import type { Coordinates, Prediction, Theme } from './src/types';
+import SpeciesInfoCard from './src/SpeciesInfoCard';
+import type {
+  Coordinates,
+  Prediction,
+  SpeciesInfo,
+  Theme,
+} from './src/types';
 
 type UploadAsset = Asset & { file?: Blob };
 
@@ -147,6 +153,48 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
   const [pin, setPin] = useState<Coordinates | null>(null);
   const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
   const [mapZoom, setMapZoom] = useState(17);
+  const [speciesInfo, setSpeciesInfo] = useState<SpeciesInfo | null>(null);
+  const [speciesLoading, setSpeciesLoading] = useState(false);
+  const [speciesError, setSpeciesError] = useState<string | null>(null);
+  const [speciesAttempt, setSpeciesAttempt] = useState(0);
+
+  const topLabel = predictions[0]?.label ?? null;
+
+  useEffect(() => {
+    if (!topLabel) {
+      setSpeciesInfo(null);
+      setSpeciesError(null);
+      setSpeciesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSpeciesInfo(null);
+    setSpeciesError(null);
+    setSpeciesLoading(true);
+    getSpeciesInfo(topLabel)
+      .then(info => {
+        if (!cancelled) {
+          setSpeciesInfo(info);
+        }
+      })
+      .catch(e => {
+        if (!cancelled) {
+          setSpeciesError(e instanceof Error ? e.message : String(e));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSpeciesLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [topLabel, speciesAttempt]);
+
+  const retrySpeciesInfo = useCallback(() => {
+    setSpeciesAttempt(attempt => attempt + 1);
+  }, []);
 
   const locateForPin = useCallback(async () => {
     try {
@@ -303,6 +351,17 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
           </View>
         </View>
       ))}
+
+      {topLabel ? (
+        <SpeciesInfoCard
+          label={topLabel}
+          info={speciesInfo}
+          loading={speciesLoading}
+          error={speciesError}
+          onRetry={retrySpeciesInfo}
+          theme={theme}
+        />
+      ) : null}
 
       {!busy && predictions.length === 0 && !error ? (
         <Text style={[styles.hint, { color: theme.muted }]}>
